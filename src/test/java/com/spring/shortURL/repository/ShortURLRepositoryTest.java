@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.net.URLDecoder;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -84,5 +85,38 @@ public class ShortURLRepositoryTest {
         // Assert
         assertTrue(updateResult);
         assertEquals("변경변경", shortURL.getTitle());
+    }
+
+    @Test
+    public void getTitleTest(){
+        // Arrange
+        String url = "https://m.search.naver.com/search.naver?sm=mtp_hty.top&where=m&query=%EC%98%A4%EB%B8%8C%EC%A0%9D%ED%8A%B8+%EC%B1%85";
+        // Act
+        String title = shortURLRepository.getTitle(url);
+        // Assert
+        assertEquals("오브젝트 책 : 네이버 통합검색", title);
+    }
+
+    @Test
+    public void setBase56EncodeTest(){
+        int number = 537426;
+        String str = shortURLRepository.setBase56Encode(number);
+        System.out.println(str);
+        assertEquals("3CQ", str);
+    }
+
+    @Test
+    public void getBase56DecodeTest(){
+        String url = "3CQ";
+        int index = shortURLRepository.getBase56Decode(url);
+        assertEquals(7389, index);
+    }
+
+    @Test
+    public void checkShortUrlTest(){
+        String url = "6FfQ";
+        boolean checkResult = shortURLRepository.checkShortUrl(url);
+
+        assertTrue(checkResult);
     }
 }

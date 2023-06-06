@@ -21,4 +21,18 @@ public interface ShortURLRepository {
 
     // 5. 업데이트
     boolean update(ShortURL shortURL);
+
+    // 6. HTML에서 Title값 얻어오기
+    String getTitle(String url);
+
+    // 7. shortURL 얻기
+    String getShortUrl(int index);
+
+    int getRandomIndex();
+
+    String setBase56Encode(int randomNumber);
+
+    public boolean checkShortUrl(String url);
+
+    public int getBase56Decode(String url);
 }
