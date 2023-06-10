@@ -7,32 +7,47 @@ import java.util.*;
 
 @Repository
 public interface ShortURLRepository {
-    // 1. 전체 조회
+    // 전체 조회
     List<ShortURL> findAll();
 
-    // 2. primaryKey 로 한 개 조회
+    // primaryKey 로 한 개 조회
     ShortURL findByIndex(long index);
 
-    // 3. 신규저장
-    boolean insert(ShortURL shortURL);
+    // 인코딩 된 인덱스로 한 개 조회
+    ShortURL findByEncodedIndex(String encodedIndex);
 
-    // 4. 삭제
-    boolean deleteByIndex(Long Index);
+    // 신규저장
+    void insert(ShortURL shortURL);
 
-    // 5. 업데이트
-    boolean update(ShortURL shortURL);
+    // 저장 전 세팅
+    void settingInsertBefore(ShortURL shortURL);
 
-    // 6. HTML에서 Title값 얻어오기
+    // 삭제
+    void deleteByIndex(Long Index);
+
+    // 인코딩 된 인덱스로 삭제
+    void deleteByEncodedIndex(String encodedIndex);
+
+    // 업데이트
+    void update(ShortURL shortURL);
+
+    // HTML에서 Title값 얻어오기
     String getTitle(String url);
 
-    // 7. shortURL 얻기
-    String getShortUrl(int index);
-
+    // 난수 6자리 생성
     int getRandomIndex();
 
-    String setBase56Encode(int randomNumber);
+    // 짧은 URL 중복 검사
+    boolean checkShortUrl(String url);
 
-    public boolean checkShortUrl(String url);
+    // 원본 URL 중복 검사
+    CheckUrlEnum checkOriginUrl(String url);
 
-    public int getBase56Decode(String url);
+    // base56으로 인코더
+    String getBase56Encode(long randomNumber);
+
+    // base56으로 디코더
+    long getBase56Decode(String url);
+
+    void increaseCount(ShortURL shortURL);
 }

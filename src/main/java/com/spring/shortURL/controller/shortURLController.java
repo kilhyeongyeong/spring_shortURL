@@ -3,98 +3,106 @@ package com.spring.shortURL.controller;
 import com.spring.shortURL.entity.ShortURL;
 import com.spring.shortURL.repository.ShortURLRepository;
 import com.spring.shortURL.repository.ShortURLRepositoryImpl;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.view.RedirectView;
+
+import java.util.Objects;
 
 @Controller
 @RequestMapping("/shortUrl")
 public class shortURLController {
-    ShortURLRepository shortURLRepository;
+    ShortURLRepository repository;
 
-    ShortURL shortURL;
-
-    @Autowired
     public shortURLController(){
-        shortURLRepository = new ShortURLRepositoryImpl();
-        shortURL = new ShortURL();
+        repository = new ShortURLRepositoryImpl();
     }
+
+    @GetMapping("/searchPage")
+    public String searchPage(){
+        return "/shortURL/search";
+    }
+
+//    @PostMapping("/search")
+//    public String serch(String shortenUrl){
+//        System.out.println(shortenUrl);
+//        ShortURL shortURL = repository.findByEncodedIndex(shortenUrl.split("/")[1]);
+//        if(Objects.isNull(shortURL)){
+//            return "/shortURL/search";
+//        }
+//        return "redirect:/shortUrl/" + shortURL.getShortUrl();
+//    }
 
     @GetMapping("/main")
     public String main(Model model){
-        model.addAttribute("shortUrlList", shortURLRepository.findAll());
-        System.out.println(shortURLRepository.findAll());
+        model.addAttribute("shortUrlList", repository.findAll());
         return "/shortURL/main";
     }
 
-    @PostMapping("/delete")
-    public String delete(@RequestParam long index, Model model){
-        shortURLRepository.deleteByIndex(index);
-        model.addAttribute("shortUrlList", shortURLRepository.findAll());
-        return "/shortURL/main";
-    }
-
-    @GetMapping("/createPage")
-    public String createPage(){
-        return "/shortURL/create";
-    }
-
-    @GetMapping("/create/calculation")
-    public String calculation(@RequestParam("originUrl") String originUrl, Model model){
-        // 인덱스
-        int index = shortURLRepository.getRandomIndex();
-        // 짧은 URL
-        String shortUrl = shortURLRepository.getShortUrl(index);
-        // 제목
-        String title = shortURLRepository.getTitle(originUrl);
-
-        shortURL = ShortURL.builder()
-                .index(index)
-                .shortUrl(shortUrl)
-                .title(title)
-                .originUrl(originUrl)
-                .build();
-
-        model.addAttribute("shortUrl", shortURL);
-        return "/shortURL/create";
-    }
-
-    @RequestMapping(value = "/create", method = {RequestMethod.GET, RequestMethod.POST})
-    public String create(){
-        System.out.println(shortURL);
-        shortURL.setIndex(shortURLRepository.getBase56Decode(shortURL.getShortUrl()));
-        shortURL.setShortUrl("shortUrl.pj/" + shortURL.getShortUrl());
-        shortURLRepository.insert(shortURL);
+    @GetMapping("/delete")
+    public String delete(String shortUrl){
+        repository.deleteByEncodedIndex(shortUrl.split("/")[1]);
         return "redirect:/shortUrl/main";
     }
 
-    @GetMapping("/create/checkShortUrl")
-    public String checkShortUrl(String shortUrl, Model model){
-        shortURL.setShortUrl(shortUrl);
-        model.addAttribute("checkShortUrl", shortURLRepository.checkShortUrl(shortUrl));
+    @GetMapping("/createPage")
+    public String createPage(Model model){
+        model.addAttribute("pageKind", "c");
+        return "/shortURL/createOrUpdate";
+    }
+
+    @PostMapping("/checkOriginUrl")
+    public String checkOriginUrl(ShortURL shortURL, String pageKind, Model model){
+
+        model.addAttribute("pageKind", pageKind);
+        model.addAttribute("checkOriginUrl", repository.checkOriginUrl(shortURL.getOriginUrl()));
         model.addAttribute("shortUrl", shortURL);
-        return "/shortURL/create";
+
+        return "/shortURL/createOrUpdate";
+    }
+
+    @PostMapping("/checkShortUrl")
+    public String checkShortUrl(ShortURL shortURL, String pageKind, Model model){
+
+        model.addAttribute("pageKind", pageKind);
+        model.addAttribute("checkShortUrl", repository.checkShortUrl(shortURL.getShortUrlBack()));
+        model.addAttribute("shortUrl", shortURL);
+
+        return "/shortURL/createOrUpdate";
+    }
+
+    @PostMapping("/create")
+    public String create(ShortURL shortURL){
+        repository.settingInsertBefore(shortURL);
+        return"redirect:/shortUrl/main";
+    }
+
+    @GetMapping("/updatePage")
+    public String update(String shortUrl, Model model){
+
+        model.addAttribute("pageKind", "u");
+        model.addAttribute("shortUrl", repository.findByEncodedIndex(shortUrl.split("/")[1]));
+
+        return "/shortURL/createOrUpdate";
+    }
+
+    @PostMapping("/update")
+    public String update(ShortURL shortUrl){
+        System.out.println("shortUrl : " + shortUrl);
+        repository.update(shortUrl);
+
+        return"redirect:/shortUrl/main";
     }
 
     @GetMapping("/shortUrl.pj/{pathID}")
     public String connectLink(@PathVariable(name = "pathID") String pathID){
 
         System.out.println("pathId : " + pathID);
-        int index = shortURLRepository.getBase56Decode(pathID);
-        shortURL = shortURLRepository.findByIndex(index);
+
+        long index = repository.getBase56Decode(pathID);
+        ShortURL shortURL = repository.findByIndex(index);
+        repository.increaseCount(shortURL);
 
         return "redirect:" + shortURL.getOriginUrl();
-    }
-
-    @GetMapping("/update")
-    public String update(String shortUrl, Model model){
-        String decodeIndex = shortUrl.split("/")[1];
-        int index = shortURLRepository.getBase56Decode(decodeIndex);
-        shortURL = shortURLRepository.findByIndex(index);
-        shortURL.setShortUrl(decodeIndex);
-        model.addAttribute("shortUrl", shortURL);
-        return "/shortURL/update";
     }
 }

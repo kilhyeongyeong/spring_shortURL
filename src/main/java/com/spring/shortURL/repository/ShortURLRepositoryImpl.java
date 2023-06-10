@@ -12,19 +12,19 @@ import java.time.*;
 
 public class ShortURLRepositoryImpl implements ShortURLRepository{
 
-    private final String BASE56 = "3456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz";
-//    private final String BASE56 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-    private final int BASE = BASE56.length();
+    protected final String BASE56 = "3456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz";
+    protected long BASE = BASE56.length();
+    protected static final Map<Long, ShortURL> urlMap;
+    protected final static String shortUrlFront = "shortUrl.pj/";
 
-    private static final Map<Long, ShortURL> urlMap;
-
-    private static int sequence;
-
+    // urlMap Setting
     static {
         urlMap = new HashMap<>();
         ShortURL link1 = ShortURL.builder()
                 .index(537426)
-                .shortUrl("bit.ly/6FfQ")
+                .shortUrl("shortUrl.pj/6FfQ")
+                .shortUrlBack("6FfQ")
+                .shortUrlFront("shortUrl.pj")
                 .originUrl("http://www.ktword.co.kr/test/view/view.php?m_temp1=356")
                 .title("토폴로지")
                 .writer("하잉")
@@ -33,10 +33,12 @@ public class ShortURLRepositoryImpl implements ShortURLRepository{
                 .lastUpdateDate(LocalDateTime.now())
                 .build();
         ShortURL link2 = ShortURL.builder()
-                .index(1)
-                .shortUrl("bit.ly/qwercccd")
+                .index(751659)
+                .shortUrl("shortUrl.pj/7XVY")
+                .shortUrlFront("shortUrl.pj")
+                .shortUrlBack("7XVY")
                 .originUrl("https://m.search.naver.com/search.naver?sm=mtp_hty.top&where=m&query=%EC%98%A4%EB%B8%8C%EC%A0%9D%ED%8A%B8+%EC%B1%85")
-                .title("bit.ly/qwercccd")
+                .title("오브젝트 책 : 네이버 통합검색")
                 .writer("하잉")
                 .count(2)
                 .registrationDate(LocalDateTime.now())
@@ -65,48 +67,85 @@ public class ShortURLRepositoryImpl implements ShortURLRepository{
     }
 
     @Override
-    public boolean insert(ShortURL shortURL) {
+    public ShortURL findByEncodedIndex(String encodedIndex) {
+        return findByIndex(getBase56Decode(encodedIndex));
+    }
 
-        // DB에서 처리해 주는 것들
+    @Override
+    public void insert(ShortURL shortURL) {
+
         shortURL.setCount(0);
         shortURL.setRegistrationDate(LocalDateTime.now());
         shortURL.setLastUpdateDate(LocalDateTime.now());
-        shortURL.setWriter("하잉");
 
-        // DB였으면 insert 실패시 false 리턴 했을 것
-        try{
-            urlMap.put(shortURL.getIndex(), shortURL);
-            return true;
-        }catch (Exception e){
-            return false;
-        }
+        urlMap.put(shortURL.getIndex(), shortURL);
     }
 
     @Override
-    public boolean deleteByIndex(Long index) {
-        try{
-            ShortURL shortURL =  urlMap.get(index);
-            shortURL.setRemoveDate(LocalDateTime.now());
-            urlMap.put(index, shortURL);
-            return true;
-        }catch (Exception e){
-            return false;
+    public void settingInsertBefore(ShortURL shortURL) {
+
+        long index;
+        String urlBack = shortURL.getShortUrlBack();
+
+        if("".equals(urlBack)){
+            index = getRandomIndex();
+            urlBack = getBase56Encode(index);
+        }else{
+            index = getBase56Decode(urlBack);
         }
+
+        ShortURL shortURLBuilder = ShortURL.builder()
+                        .index(index)
+                        .shortUrl(shortUrlFront + urlBack)
+                        .shortUrlFront(shortUrlFront)
+                        .shortUrlBack(urlBack)
+                        .originUrl(shortURL.getOriginUrl())
+                        .title("".equals(shortURL.getTitle()) ? getTitle(shortURL.getOriginUrl()) : shortURL.getTitle())
+                        .writer("하잉")
+                        .build();
+
+        insert(shortURLBuilder);
+    }
+
+
+    @Override
+    public void deleteByIndex(Long index) {
+
+        ShortURL shortURL =  urlMap.get(index);
+        shortURL.setRemoveDate(LocalDateTime.now());
+
+        urlMap.put(index, shortURL);
     }
 
     @Override
-    public boolean update(ShortURL shortURL) {
-        try{
-            shortURL.setLastUpdateDate(LocalDateTime.now());
-            urlMap.put(shortURL.getIndex(), shortURL);
-            return true;
-        }catch (Exception e){
-            return false;
-        }
+    public void deleteByEncodedIndex(String encodedIndex) {
+        deleteByIndex(getBase56Decode(encodedIndex));
     }
 
     @Override
-    public String getTitle(String url){
+    public void update(ShortURL shortURL) {
+        System.out.println(shortURL);
+
+        ShortURL shortURLOrigin = findByIndex(shortURL.getIndex());
+        urlMap.remove(shortURLOrigin.getIndex());
+
+        // 원본 : Title의 빈칸X -> 변경 : Title이 빈칸O = 원본을 그대로 넣음
+        if(!"".equals(shortURLOrigin.getTitle()) && "".equals(shortURL.getTitle()))
+            shortURL.setTitle(shortURLOrigin.getTitle());
+
+        // shorten Url의 뒷 부분이 달라졌다면 index, shortUrl 수정
+        if(!shortURL.getShortUrlBack().equals(shortURLOrigin.getShortUrlBack())){
+            String urlBack = shortURL.getShortUrlBack();
+            shortURL.setIndex(getBase56Decode(urlBack));
+            shortURL.setShortUrl(shortUrlFront + urlBack);
+        }
+
+        shortURL.setLastUpdateDate(LocalDateTime.now());
+        urlMap.put(shortURL.getIndex(), shortURL);
+    }
+
+    @Override
+    public String getTitle(String url) {
         try {
             Connection con = Jsoup.connect(URLDecoder.decode(url, "UTF-8"));
 
@@ -119,13 +158,7 @@ public class ShortURLRepositoryImpl implements ShortURLRepository{
     }
 
     @Override
-    public String getShortUrl(int index) {
-        String shortUrl = setBase56Encode(index);
-        return shortUrl;
-    }
-
-    @Override
-    public int getRandomIndex(){
+    public int getRandomIndex() {
         StringBuilder sb;
         while(true) {
             sb= new StringBuilder("");
@@ -139,26 +172,35 @@ public class ShortURLRepositoryImpl implements ShortURLRepository{
     }
 
     @Override
-    public String setBase56Encode(int randomNumber){
+    public boolean checkShortUrl(String url) {
+        return urlMap.containsKey(getBase56Decode(url))
+                && Objects.isNull(urlMap.get((long)getBase56Decode(url)).getRemoveDate());
+    }
 
+    @Override
+    public CheckUrlEnum checkOriginUrl(String url) {
+        List<ShortURL> list = findAll();
+        for(ShortURL su : list){
+            if(url.equals(su.getOriginUrl())) return CheckUrlEnum.ALREADY;
+        }
+        return CheckUrlEnum.OK;
+    }
+
+    @Override
+    public String getBase56Encode(long randomNumber) {
         StringBuilder sb = new StringBuilder();
         while(randomNumber > 0){
-            int mod = randomNumber % BASE;
-            sb.insert(0, BASE56.charAt(mod));
-            randomNumber /= BASE;
+            long mod = randomNumber % BASE;
+            sb.insert(0, BASE56.charAt((int)mod));
+            randomNumber /=  BASE;
         }
 
         return sb.toString();
     }
 
-    public boolean checkShortUrl(String url){
-        return urlMap.containsKey((long)getBase56Decode(url))
-                && Objects.isNull(urlMap.get((long)getBase56Decode(url)).getRemoveDate());
-    }
-
     @Override
-    public int getBase56Decode(String url){
-        int result = BASE * BASE56.indexOf(url.charAt(0));
+    public long getBase56Decode(String url) {
+        long result = BASE * BASE56.indexOf(url.charAt(0));
         if (url.length() >= 2){
             result += BASE56.indexOf(url.charAt(1));
             for(int i=2; i<url.length(); i++){
@@ -166,5 +208,10 @@ public class ShortURLRepositoryImpl implements ShortURLRepository{
             }
         }
         return result;
+    }
+
+    @Override
+    public void increaseCount(ShortURL shortURL) {
+        shortURL.setCount(shortURL.getCount() + 1);
     }
 }
